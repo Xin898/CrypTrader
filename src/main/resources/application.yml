@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: cryp-trader
+  datasource:
+    url: ${CRYPTO_DB_URL:jdbc:postgresql://localhost:5432/cryptrader}
+    username: ${CRYPTO_DB_USER:cryptrader}
+    password: ${CRYPTO_DB_PASSWORD:cryptrader}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+trading:
+  execution:
+    provider: binance-test
