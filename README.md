@@ -2,11 +2,11 @@
 
 Self-Contained Crypto Trading System designed as a **Self-Contained System (SCS)**.
 
-The system owns its UI, backend logic, data, integration contracts and deployment lifecycle. It does **not** share a database with TradingAgents or the other trader system.
+CrypTrader owns its UI, backend logic, data, integration contracts and deployment lifecycle. It does **not** share a database with TradingAgents or StockTrader.
 
 ## Architecture goal
 
-CrypTrader is responsible for deterministic trading decisions and execution. TradingAgents is an upstream **AI market-intelligence service** only.
+TradingAgents is an upstream **AI market-intelligence service**. CrypTrader remains responsible for deterministic strategy, risk, order management and execution.
 
 ```text
 TradingAgents
@@ -45,67 +45,45 @@ TradingAgents may provide direction, confidence, risk factors, data timestamp an
 | `signal-ingestion` | TradingAgents signal/API integration, validation, freshness and idempotency |
 | `strategy-engine` | Signal/market-data -> TradeIntent |
 | `risk-engine` | Deterministic pre-trade limits, exposure and approval |
-| `portfolio` | Positions, cash/balances, PnL and exposure |
+| `portfolio` | Positions, balances, PnL and exposure |
 | `order-management` | OMS and complete order lifecycle |
-| `market-data` | External market feed ingestion and normalization |
+| `market-data` | Binance WebSocket/REST feed ingestion and normalization |
 | `execution` | Binance order/execution adapter |
 | `platform` | Persistence, messaging, observability, configuration, security |
 
 ## Naming decisions
 
-- **portfolio** instead of `Depot`: clearer across stock and crypto domains and easier to understand internationally.
-- **risk-engine** instead of `RiskController`: `Controller` describes an adapter/API role, while risk is core domain logic.
-- **strategy-engine** makes it explicit that this module creates trade intents rather than executing orders.
-- **order-management** explicitly represents an OMS boundary.
-- **execution** isolates venue-specific APIs from the core trading domain.
+- **portfolio** instead of `Depot`: clearer across asset classes and internationally understandable.
+- **risk-engine** instead of `RiskController`: risk is core domain logic, not an HTTP controller.
+- **strategy-engine** creates trade intents but does not execute orders.
+- **order-management** represents the OMS boundary.
+- **execution** isolates Binance-specific APIs from core trading logic.
 - **signal-ingestion** keeps TradingAgents integration outside strategy logic.
 
 ## SCS / modular-monolith rule
 
 V1 is intentionally a **modular monolith inside one SCS**, not a collection of fine-grained microservices.
 
-```text
-One deployable SCS
-├── domain modules with explicit boundaries
-├── one owned persistence boundary
-├── external integration adapters
-└── one operational lifecycle
-```
-
 A module should only become an independent service/SCS when there is a concrete reason such as independent ownership, scaling, security, release cadence or cross-platform reuse.
 
-## External market integration
+## Crypto-specific integration
 
-- 24/7 crypto market data
+- 24/7 trading model
 - WebSocket-first market data
 - Binance REST/WebSocket integration
-
-## Planned architecture documentation
-
-```text
-docs/
-├── architecture/
-│   ├── system-context.md
-│   ├── module-boundaries.md
-│   ├── event-flow.md
-│   ├── data-ownership.md
-│   └── failure-recovery.md
-└── adr/
-    ├── ADR-001-scs-modular-monolith.md
-    ├── ADR-002-tradingagents-contract.md
-    ├── ADR-003-order-state-machine.md
-    ├── ADR-004-risk-before-execution.md
-    └── ADR-005-broker-exchange-adapter.md
-```
+- reconnect / resubscribe handling
+- sequence and order-book consistency
+- symbol precision / lot size / tick size
+- exchange rate limits and reconciliation
 
 ## Core design principles
 
 1. No shared database between SCSs.
 2. External systems are accessed through explicit adapters.
 3. Strategy never bypasses Risk.
-4. Risk never directly talks to the broker/exchange.
+4. Risk never directly talks to Binance.
 5. Order Management owns order state.
 6. Portfolio owns position/exposure state.
 7. AI output is versioned, time-bounded decision support only.
 8. Every external event must be designed for retry, duplicate and out-of-order handling.
-9. Observability and reconciliation are part of the architecture, not afterthoughts.
+9. Observability and reconciliation are part of the architecture.
